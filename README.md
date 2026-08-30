@@ -74,19 +74,7 @@ The project is built using:
 
 ---
 
-## 🖥️ Screenshots
 
-Screenshots of the application can be added here.
-
-### Homepage
-
-![alt text](image.png)
-
-### Barcode Generator
-![alt text](image-1.png)
-
-
----
 
 ## 📂 Project Structure
 
