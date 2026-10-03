@@ -1,1095 +1,1809 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import { jsPDF } from "jspdf";
+import JSZip from "jszip";
+
 import "../App.css";
+import "./bar.css";
+
+/* =========================================================
+   CONFIG
+========================================================= */
+
+const BWIP_URL =
+  "https://cdn.jsdelivr.net/npm/bwip-js@4.11.2/dist/bwip-js-min.js";
 
 const BARCODE_TYPES = [
-  {
-    value: "CODE128",
-    label: "Code 128",
-    description: "",
-    category: "General",
-    icon: "▥",
-    bcid: "code128",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "CODE128A",
-    label: "Code 128 A",
-    description: "Uppercase + control",
-    category: "Code 128",
-    icon: "A",
-    bcid: "code128",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-    mode: "A",
-  },
-  {
-    value: "CODE128B",
-    label: "Code 128 B",
-    description: "ASCII characters",
-    category: "Code 128",
-    icon: "B",
-    bcid: "code128",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-    mode: "B",
-  },
-  {
-    value: "CODE128C",
-    label: "Code 128 C",
-    description: "Numeric pairs",
-    category: "Code 128",
-    icon: "C",
-    bcid: "code128",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-    mode: "C",
-  },
-  {
-    value: "GS1128",
-    label: "GS1-128",
-    description: "Supply chain",
-    category: "GS1",
-    icon: "GS1",
-    bcid: "gs1-128",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 12,
-  },
-  {
-    value: "EAN13",
-    label: "EAN-13",
-    description: "Retail products",
-    category: "Retail",
-    icon: "13",
-    bcid: "ean13",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "EAN8",
-    label: "EAN-8",
-    description: "Small retail products",
-    category: "Retail",
-    icon: "8",
-    bcid: "ean8",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "UPCA",
-    label: "UPC-A",
-    description: "Retail / North America",
-    category: "Retail",
-    icon: "U",
-    bcid: "upca",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "UPCE",
-    label: "UPC-E",
-    description: "Compact UPC",
-    category: "Retail",
-    icon: "U",
-    bcid: "upce",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "ITF14",
-    label: "ITF-14",
-    description: "Cartons & cases",
-    category: "Logistics",
-    icon: "14",
-    bcid: "itf14",
-    height: 25,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "ITF",
-    label: "ITF",
-    description: "Interleaved 2 of 5",
-    category: "Logistics",
-    icon: "ITF",
-    bcid: "interleaved2of5",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "CODE39",
-    label: "Code 39",
-    description: "Industrial / inventory",
-    category: "General",
-    icon: "39",
-    bcid: "code39",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "CODE93",
-    label: "Code 93",
-    description: "Compact alphanumeric",
-    category: "General",
-    icon: "93",
-    bcid: "code93",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "CODABAR",
-    label: "Codabar",
-    description: "Libraries / logistics",
-    category: "General",
-    icon: "CB",
-    bcid: "rationalizedCodabar",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "MSI",
-    label: "MSI",
-    description: "Numeric inventory",
-    category: "General",
-    icon: "MSI",
-    bcid: "msi",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
-  {
-    value: "PHARMACODE",
-    label: "Pharmacode",
-    description: "Pharmaceutical",
-    category: "Pharma",
-    icon: "P",
-    bcid: "pharmacode",
-    height: 22,
-    scale: 4,
-    includetext: true,
-    textsize: 13,
-  },
+  { value: "code128", label: "CODE 128" },
+  { value: "code128a", label: "CODE 128 A" },
+  { value: "code128b", label: "CODE 128 B" },
+  { value: "code128c", label: "CODE 128 C" },
+  { value: "gs1-128", label: "GS1-128" },
+  { value: "ean13", label: "EAN-13" },
+  { value: "ean8", label: "EAN-8" },
+  { value: "upca", label: "UPC-A" },
+  { value: "upce", label: "UPC-E" },
+  { value: "itf14", label: "ITF-14" },
+  { value: "itf", label: "ITF" },
+  { value: "code39", label: "CODE 39" },
+  { value: "code93", label: "CODE 93" },
+  { value: "codabar", label: "CODABAR" },
+  { value: "msi", label: "MSI" },
+  { value: "pharmacode", label: "PHARMACODE" },
 ];
 
-export default function BarcodeGenerator() {
-  const [inputText, setInputText] = useState("");
-  const [barcodeType, setBarcodeType] = useState("CODE128");
-  const [barcodes, setBarcodes] = useState([]);
-  const [currentBarcode, setCurrentBarcode] = useState(null);
-  const [scale, setScale] = useState(4);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
-  const [selectedBarcodes, setSelectedBarcodes] = useState([]);
-  const [selectAll, setSelectAll] = useState(false);
-  
-  const scriptLoadedRef = useRef(false);
-  const generateTimeout = useRef(null);
+/* =========================================================
+   HELPERS
+========================================================= */
 
-  /* =========================================================
-     LOAD BWIP-JS
-  ========================================================= */
+const createId = () => {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
 
-  useEffect(() => {
-    if (window.bwipjs) {
-      scriptLoadedRef.current = true;
-      setScriptLoaded(true);
+  return `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+};
+
+const getTimestamp = () => {
+  const date = new Date();
+
+  const pad = (value) =>
+    String(value).padStart(2, "0");
+
+  return (
+    `${date.getFullYear()}-` +
+    `${pad(date.getMonth() + 1)}-` +
+    `${pad(date.getDate())}_` +
+    `${pad(date.getHours())}-` +
+    `${pad(date.getMinutes())}-` +
+    `${pad(date.getSeconds())}`
+  );
+};
+
+const sanitizeFilename = (value) => {
+  return String(value || "barcode")
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "barcode";
+};
+
+const downloadBlob = (blob, filename) => {
+  if (!blob) {
+    throw new Error("Download file could not be created.");
+  }
+
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 2000);
+};
+
+const downloadDataUrl = (dataUrl, filename) => {
+  if (!dataUrl) {
+    throw new Error("Barcode image is missing.");
+  }
+
+  const link = document.createElement("a");
+
+  link.href = dataUrl;
+  link.download = filename;
+  link.style.display = "none";
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+
+/* =========================================================
+   VALIDATION
+========================================================= */
+
+const validateBarcode = (value, type) => {
+  const text = String(value || "").trim();
+
+  if (!text) {
+    return "Enter barcode data.";
+  }
+
+  switch (type) {
+    case "ean13":
+      if (!/^\d{12,13}$/.test(text)) {
+        return "EAN-13 requires 12 or 13 digits.";
+      }
+      break;
+
+    case "ean8":
+      if (!/^\d{7,8}$/.test(text)) {
+        return "EAN-8 requires 7 or 8 digits.";
+      }
+      break;
+
+    case "upca":
+      if (!/^\d{11,12}$/.test(text)) {
+        return "UPC-A requires 11 or 12 digits.";
+      }
+      break;
+
+    case "upce":
+      if (!/^\d{6,8}$/.test(text)) {
+        return "UPC-E requires 6 to 8 digits.";
+      }
+      break;
+
+    case "itf14":
+      if (!/^\d{13,14}$/.test(text)) {
+        return "ITF-14 requires 13 or 14 digits.";
+      }
+      break;
+
+    case "itf":
+      if (!/^\d+$/.test(text)) {
+        return "ITF accepts numbers only.";
+      }
+
+      if (text.length % 2 !== 0) {
+        return "ITF requires an even number of digits.";
+      }
+      break;
+
+    case "code128c":
+      if (!/^\d+$/.test(text)) {
+        return "CODE 128 C requires numbers only.";
+      }
+
+      if (text.length % 2 !== 0) {
+        return "CODE 128 C requires an even number of digits.";
+      }
+      break;
+
+    case "pharmacode": {
+      if (!/^\d+$/.test(text)) {
+        return "Pharmacode accepts numbers only.";
+      }
+
+      const number = Number(text);
+
+      if (number < 3 || number > 131070) {
+        return "Pharmacode must be between 3 and 131070.";
+      }
+
+      break;
+    }
+
+    default:
+      break;
+  }
+
+  return "";
+};
+
+/* =========================================================
+   SVG -> PNG
+========================================================= */
+
+const svgDataUrlToPng = (
+  svgDataUrl,
+  width = 1400
+) => {
+  return new Promise((resolve, reject) => {
+    if (!svgDataUrl) {
+      reject(
+        new Error("Barcode image is missing.")
+      );
       return;
     }
 
-    const existingScript = document.querySelector(
-      'script[data-barcode-bwip="true"]'
-    );
+    const image = new Image();
 
-    if (existingScript) {
-      existingScript.addEventListener("load", handleLoad);
-      return () => {
-        existingScript.removeEventListener("load", handleLoad);
-      };
-    }
+    image.onload = () => {
+      try {
+        const sourceWidth =
+          image.naturalWidth || width;
 
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/bwip-js@4.11.2/dist/bwip-js-min.js";
-    script.async = true;
-    script.dataset.barcodeBwip = "true";
-    script.onload = handleLoad;
-    script.onerror = () => {
-      console.error("Unable to load bwip-js");
-      setScriptLoaded(false);
-      setErrorMessage("Barcode engine could not be loaded.");
-    };
-    document.body.appendChild(script);
+        const sourceHeight =
+          image.naturalHeight ||
+          Math.round(width * 0.35);
 
-    function handleLoad() {
-      scriptLoadedRef.current = true;
-      setScriptLoaded(true);
-      setErrorMessage("");
-    }
+        const ratio =
+          sourceHeight / sourceWidth;
 
-    return () => {
-      if (generateTimeout.current) {
-        clearTimeout(generateTimeout.current);
+        const canvasWidth = width;
+
+        const canvasHeight = Math.max(
+          180,
+          Math.round(canvasWidth * ratio)
+        );
+
+        const canvas =
+          document.createElement("canvas");
+
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        const context =
+          canvas.getContext("2d");
+
+        if (!context) {
+          reject(
+            new Error(
+              "Unable to create canvas."
+            )
+          );
+          return;
+        }
+
+        context.fillStyle = "#ffffff";
+
+        context.fillRect(
+          0,
+          0,
+          canvasWidth,
+          canvasHeight
+        );
+
+        context.imageSmoothingEnabled = false;
+
+        context.drawImage(
+          image,
+          0,
+          0,
+          canvasWidth,
+          canvasHeight
+        );
+
+        const png =
+          canvas.toDataURL("image/png");
+
+        if (
+          !png ||
+          png === "data:," ||
+          png.length < 100
+        ) {
+          reject(
+            new Error(
+              "Barcode could not be converted to PNG."
+            )
+          );
+          return;
+        }
+
+        resolve(png);
+      } catch (error) {
+        reject(error);
       }
     };
-  }, []);
 
-  /* =========================================================
-     SELECTED TYPE
-  ========================================================= */
-
-  const selectedType = BARCODE_TYPES.find(
-    (item) => item.value === barcodeType
-  ) || BARCODE_TYPES[0];
-
-  /* =========================================================
-     VALIDATION
-  ========================================================= */
-
-  const validateBarcode = useCallback((text, type) => {
-    const value = text.trim();
-    if (!value) return { valid: false, message: "" };
-
-    if (type === "EAN13" && !/^\d{12,13}$/.test(value)) {
-      return { valid: false, message: "EAN-13 requires 12 or 13 digits." };
-    }
-    if (type === "EAN8" && !/^\d{7,8}$/.test(value)) {
-      return { valid: false, message: "EAN-8 requires 7 or 8 digits." };
-    }
-    if (type === "UPCA" && !/^\d{11,12}$/.test(value)) {
-      return { valid: false, message: "UPC-A requires 11 or 12 digits." };
-    }
-    if (type === "UPCE" && !/^\d{6,8}$/.test(value)) {
-      return { valid: false, message: "UPC-E requires 6 to 8 digits." };
-    }
-    if (type === "ITF14" && !/^\d{13,14}$/.test(value)) {
-      return { valid: false, message: "ITF-14 requires 13 or 14 digits." };
-    }
-    if (type === "CODE128C") {
-      if (!/^\d+$/.test(value)) {
-        return { valid: false, message: "Code 128 C accepts numeric data only." };
-      }
-      if (value.length % 2 !== 0) {
-        return { valid: false, message: "Code 128 C requires an even number of digits." };
-      }
-    }
-    if (type === "PHARMACODE" && !/^\d+$/.test(value)) {
-      return { valid: false, message: "Pharmacode accepts numeric data only." };
-    }
-
-    return { valid: true, message: "" };
-  }, []);
-
-  /* =========================================================
-     GENERATE BARCODE
-  ========================================================= */
-
-  const generateBarcode = useCallback(async (text, type, customScale = scale) => {
-    if (!text.trim() || !scriptLoadedRef.current || !window.bwipjs) return null;
-
-    const config = BARCODE_TYPES.find((item) => item.value === type) || BARCODE_TYPES[0];
-    const validation = validateBarcode(text, type);
-    if (!validation.valid) {
-      setErrorMessage(validation.message);
-      return null;
-    }
-
-    try {
-      const canvas = document.createElement("canvas");
-      const options = {
-        bcid: config.bcid,
-        text: text.trim(),
-        scaleX: customScale,
-        scaleY: customScale,
-        height: config.height,
-        includetext: config.includetext,
-        textxalign: "center",
-        backgroundcolor: "FFFFFF",
-        barcolor: "000000",
-        textcolor: "000000",
-        paddingwidth: 12,
-        paddingheight: 12,
-        monochrome: true,
-      };
-
-      if (config.mode) options.mode = config.mode;
-      if (config.includetext) {
-        options.textsize = config.textsize;
-        options.textfont = "Helvetica";
-      }
-
-      await window.bwipjs.toCanvas(canvas, options);
-      const dataUrl = canvas.toDataURL("image/png");
-      setErrorMessage("");
-
-      return {
-        id: Date.now() + Math.random() * 100000,
-        value: text.trim(),
-        type,
-        dataUrl,
-        label: config.label,
-        category: config.category,
-      };
-    } catch (error) {
-      console.error("Barcode generation error:", error);
-      setErrorMessage(error?.message || "Unable to generate barcode.");
-      return null;
-    }
-  }, [scale, validateBarcode]);
-
-  /* =========================================================
-     LIVE PREVIEW
-  ========================================================= */
-
-  useEffect(() => {
-    if (generateTimeout.current) clearTimeout(generateTimeout.current);
-    setErrorMessage("");
-
-    if (!inputText.trim()) {
-      setCurrentBarcode(null);
-      setIsGenerating(false);
-      return;
-    }
-
-    if (!scriptLoadedRef.current) return;
-
-    const validation = validateBarcode(inputText, barcodeType);
-    if (!validation.valid) {
-      setCurrentBarcode(null);
-      setErrorMessage(validation.message);
-      setIsGenerating(false);
-      return;
-    }
-
-    setIsGenerating(true);
-    generateTimeout.current = setTimeout(async () => {
-      const barcode = await generateBarcode(inputText, barcodeType, scale);
-      setCurrentBarcode(barcode);
-      setIsGenerating(false);
-    }, 300);
-
-    return () => {
-      if (generateTimeout.current) clearTimeout(generateTimeout.current);
+    image.onerror = () => {
+      reject(
+        new Error(
+          "Unable to render barcode image."
+        )
+      );
     };
-  }, [inputText, barcodeType, scale, generateBarcode, validateBarcode]);
 
-  /* =========================================================
-     ADD BARCODE
-  ========================================================= */
+    image.src = svgDataUrl;
+  });
+};
 
-  const handleAddBarcode = () => {
-    if (!currentBarcode) return;
-    setBarcodes((prev) => [...prev, { ...currentBarcode, id: Date.now() + Math.random() * 100000 }]);
-    setInputText("");
-    setCurrentBarcode(null);
-    // Auto-select the newly added barcode
-    setSelectedBarcodes((prev) => [...prev, currentBarcode.id]);
-  };
+/* =========================================================
+   WEB WORKER
+========================================================= */
 
-  /* =========================================================
-     BATCH GENERATE
-  ========================================================= */
+const createBarcodeWorker = () => {
+  const workerCode = `
+    importScripts("${BWIP_URL}");
 
-  const handleBatchGenerate = async () => {
-    if (!inputText.trim()) return;
-    const items = inputText.split(/[,\n]+/).map((item) => item.trim()).filter(Boolean);
-    if (!items.length) return;
+    self.onmessage = function(event) {
+      const {
+        id,
+        value,
+        type
+      } = event.data;
 
-    setIsLoading(true);
-    setErrorMessage("");
-    const generated = [];
+      try {
+        if (!value) {
+          self.postMessage({
+            id,
+            empty: true
+          });
 
-    for (const item of items) {
-      const barcode = await generateBarcode(item, barcodeType, scale);
-      if (barcode) {
-        generated.push(barcode);
-        // Auto-select batch generated barcodes
-        setSelectedBarcodes((prev) => [...prev, barcode.id]);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 40));
-    }
+          return;
+        }
 
-    if (generated.length) {
-      setBarcodes((prev) => [...prev, ...generated]);
-    }
-    setInputText("");
-    setCurrentBarcode(null);
-    setIsLoading(false);
-  };
+        const options = {
+          bcid: type,
+          text: value,
 
-  /* =========================================================
-     SELECTION HANDLERS
-  ========================================================= */
+          scaleX: 3,
+          scaleY: 3,
 
-  const toggleSelect = (id) => {
-    setSelectedBarcodes((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+          height: 22,
 
-  const toggleSelectAll = () => {
-    if (selectAll) {
-      setSelectedBarcodes([]);
-    } else {
-      setSelectedBarcodes(barcodes.map((item) => item.id));
-    }
-    setSelectAll(!selectAll);
-  };
+          includetext: true,
+          textxalign: "center",
+          textsize: 9,
+          textfont: "Helvetica",
 
-  // Update selectAll when selection changes
-  useEffect(() => {
-    if (barcodes.length > 0 && selectedBarcodes.length === barcodes.length) {
-      setSelectAll(true);
-    } else {
-      setSelectAll(false);
-    }
-  }, [selectedBarcodes, barcodes]);
+          backgroundcolor: "FFFFFF",
 
-  /* =========================================================
-     DOWNLOAD
-  ========================================================= */
+          paddingwidth: 8,
+          paddingheight: 8
+        };
 
-  const downloadBarcode = (barcode) => {
-    const safeValue = barcode.value.replace(/[^\w-]/g, "_");
-    const link = document.createElement("a");
-    link.download = `${safeValue}-${barcode.type}.png`;
-    link.href = barcode.dataUrl;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+        const svg = bwipjs.toSVG(options);
 
-  /* =========================================================
-     DOWNLOAD SELECTED
-  ========================================================= */
+        const encoded = btoa(
+          unescape(
+            encodeURIComponent(svg)
+          )
+        );
 
-  const downloadSelected = () => {
-    const selected = barcodes.filter((item) => selectedBarcodes.includes(item.id));
-    if (!selected.length) return;
+        const image =
+          "data:image/svg+xml;base64," +
+          encoded;
 
-    selected.forEach((barcode, index) => {
-      setTimeout(() => {
-        const link = document.createElement("a");
-        const safeValue = barcode.value.replace(/[^\w-]/g, "_");
-        link.download = `${String(index + 1).padStart(3, "0")}-${safeValue}.png`;
-        link.href = barcode.dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, index * 250);
-    });
-  };
+        self.postMessage({
+          id,
+          value,
+          type,
+          image,
+          success: true
+        });
 
-  /* =========================================================
-     DOWNLOAD ALL
-  ========================================================= */
-
-  const downloadAll = () => {
-    if (!barcodes.length) return;
-    barcodes.forEach((barcode, index) => {
-      setTimeout(() => {
-        const link = document.createElement("a");
-        const safeValue = barcode.value.replace(/[^\w-]/g, "_");
-        link.download = `${String(index + 1).padStart(3, "0")}-${safeValue}.png`;
-        link.href = barcode.dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, index * 250);
-    });
-  };
-
-  /* =========================================================
-     DOWNLOAD AS PDF
-  ========================================================= */
-
-  const downloadAsPdf = async () => {
-    const selected = barcodes.filter((item) => selectedBarcodes.includes(item.id));
-    if (!selected.length) return;
-
-    setIsPdfGenerating(true);
-
-    try {
-      // Load jsPDF dynamically
-      if (!window.jspdf) {
-        const script = document.createElement("script");
-        script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = reject;
-          document.body.appendChild(script);
+      } catch (error) {
+        self.postMessage({
+          id,
+          error:
+            error?.message ||
+            "Barcode generation failed"
         });
       }
+    };
+  `;
 
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = 210;
-      const margin = 15;
-      const usableWidth = pageWidth - (margin * 2);
-      const itemsPerRow = 2;
-      const barcodeWidth = (usableWidth / itemsPerRow) - 5;
-      const barcodeHeight = 45;
-      const rowHeight = barcodeHeight + 15;
-      let x = margin;
-      let y = margin + 10;
+  const blob = new Blob(
+    [workerCode],
+    {
+      type: "application/javascript",
+    }
+  );
 
-      // Add title
-      pdf.setFontSize(16);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text('Linear Barcodes', pageWidth / 2, margin + 5, { align: 'center' });
-      pdf.setFontSize(10);
-      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, margin + 12, { align: 'center' });
-      y = margin + 20;
+  const url =
+    URL.createObjectURL(blob);
 
-      for (let i = 0; i < selected.length; i++) {
-        const barcode = selected[i];
-        const imgData = barcode.dataUrl;
-        
-        // Add barcode image
-        pdf.addImage(imgData, 'PNG', x + 2, y + 2, barcodeWidth - 4, barcodeHeight - 10);
-        
-        // Add text below barcode
-        pdf.setFontSize(8);
-        pdf.setTextColor(100);
-        const displayText = barcode.value.length > 25 
-          ? barcode.value.substring(0, 22) + '...' 
-          : barcode.value;
-        pdf.text(displayText, x + (barcodeWidth / 2), y + barcodeHeight - 2, { align: 'center' });
-        
-        // Add index
-        pdf.setFontSize(7);
-        pdf.setTextColor(150);
-        pdf.text(`#${String(i + 1).padStart(2, '0')} - ${barcode.type}`, x + 2, y + barcodeHeight + 4);
+  const worker = new Worker(url);
 
-        // Move to next position
-        if ((i + 1) % itemsPerRow === 0) {
-          x = margin;
-          y += rowHeight;
-        } else {
-          x += barcodeWidth + 5;
-        }
+  URL.revokeObjectURL(url);
 
-        // Add new page if needed
-        if (y > 280) {
-          pdf.addPage();
-          y = margin + 10;
-          x = margin;
-        }
+  return worker;
+};
+
+/* =========================================================
+   COMPONENT
+========================================================= */
+
+export default function BarcodeGenerator() {
+  const [inputText, setInputText] =
+    useState("");
+
+  const [barcodeType, setBarcodeType] =
+    useState("code128");
+
+  const [currentBarcode, setCurrentBarcode] =
+    useState(null);
+
+  const [barcodes, setBarcodes] =
+    useState([]);
+
+  const [selectedBarcodes, setSelectedBarcodes] =
+    useState([]);
+
+  const [isPreviewGenerating, setIsPreviewGenerating] =
+    useState(false);
+
+  const [isPdfGenerating, setIsPdfGenerating] =
+    useState(false);
+
+  const [isZipGenerating, setIsZipGenerating] =
+    useState(false);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const workerRef = useRef(null);
+
+  const requestIdRef = useRef(0);
+
+  /* =======================================================
+     WORKER INITIALIZATION
+  ======================================================= */
+
+  useEffect(() => {
+    const worker =
+      createBarcodeWorker();
+
+    workerRef.current = worker;
+
+    worker.onmessage = (event) => {
+      const data = event.data;
+
+      if (
+        data.id !== requestIdRef.current
+      ) {
+        return;
       }
 
-      pdf.save('barcodes.pdf');
+      setIsPreviewGenerating(false);
+
+      if (data.error) {
+        setCurrentBarcode(null);
+        setErrorMessage(data.error);
+        return;
+      }
+
+      if (data.empty) {
+        setCurrentBarcode(null);
+        return;
+      }
+
+      setCurrentBarcode({
+        id: createId(),
+        value: data.value,
+        type: data.type,
+        image: data.image,
+      });
+
+      setErrorMessage("");
+    };
+
+    worker.onerror = (error) => {
+      console.error(
+        "Barcode Worker Error:",
+        error
+      );
+
+      setIsPreviewGenerating(false);
+
+      setErrorMessage(
+        "Barcode preview engine failed."
+      );
+    };
+
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+    };
+  }, []);
+
+  /* =======================================================
+     LIVE PREVIEW
+  ======================================================= */
+
+  useEffect(() => {
+    const worker = workerRef.current;
+
+    if (!worker) {
+      return;
+    }
+
+    const value =
+      inputText.trim();
+
+    const id =
+      ++requestIdRef.current;
+
+    if (!value) {
+      setCurrentBarcode(null);
+      setIsPreviewGenerating(false);
+      setErrorMessage("");
+      return;
+    }
+
+    const validationError =
+      validateBarcode(
+        value,
+        barcodeType
+      );
+
+    if (validationError) {
+      setCurrentBarcode(null);
+      setIsPreviewGenerating(false);
+      setErrorMessage(validationError);
+      return;
+    }
+
+    setErrorMessage("");
+    setIsPreviewGenerating(true);
+
+    worker.postMessage({
+      id,
+      value,
+      type: barcodeType,
+    });
+  }, [
+    inputText,
+    barcodeType,
+  ]);
+
+  /* =======================================================
+     INPUT
+  ======================================================= */
+
+  const handleInputChange =
+    useCallback((event) => {
+      setInputText(
+        event.target.value
+      );
+    }, []);
+
+  const handleTypeChange =
+    useCallback((event) => {
+      setBarcodeType(
+        event.target.value
+      );
+    }, []);
+
+  const handleClear =
+    useCallback(() => {
+      ++requestIdRef.current;
+
+      setInputText("");
+      setCurrentBarcode(null);
+      setErrorMessage("");
+      setIsPreviewGenerating(false);
+    }, []);
+
+  /* =======================================================
+     ADD BARCODE
+  ======================================================= */
+
+  const handleAddBarcode =
+    useCallback(() => {
+      if (!currentBarcode) {
+        return;
+      }
+
+      const id = createId();
+
+      const item = {
+        ...currentBarcode,
+        id,
+      };
+
+      setBarcodes((previous) => [
+        ...previous,
+        item,
+      ]);
+
+      setSelectedBarcodes(
+        (previous) => [
+          ...previous,
+          id,
+        ]
+      );
+    }, [currentBarcode]);
+
+  /* =======================================================
+     BATCH WORKER GENERATION
+  ======================================================= */
+
+  const generateWorkerBarcode =
+    useCallback(
+      (value, type) => {
+        return new Promise(
+          (resolve) => {
+            const worker =
+              workerRef.current;
+
+            if (!worker) {
+              resolve(null);
+              return;
+            }
+
+            const id =
+              ++requestIdRef.current;
+
+            const handler =
+              (event) => {
+                if (
+                  event.data.id !== id
+                ) {
+                  return;
+                }
+
+                worker.removeEventListener(
+                  "message",
+                  handler
+                );
+
+                resolve(
+                  event.data
+                );
+              };
+
+            worker.addEventListener(
+              "message",
+              handler
+            );
+
+            worker.postMessage({
+              id,
+              value,
+              type,
+            });
+          }
+        );
+      },
+      []
+    );
+
+  const handleBatchGenerate =
+    useCallback(
+      async () => {
+        const values =
+          inputText
+            .split(/[,;\n]+/)
+            .map((value) =>
+              value.trim()
+            )
+            .filter(Boolean);
+
+        if (!values.length) {
+          setErrorMessage(
+            "Enter multiple values separated by commas or new lines."
+          );
+
+          return;
+        }
+
+        const generated = [];
+        const ids = [];
+
+        for (const value of values) {
+          const validationError =
+            validateBarcode(
+              value,
+              barcodeType
+            );
+
+          if (validationError) {
+            continue;
+          }
+
+          const result =
+            await generateWorkerBarcode(
+              value,
+              barcodeType
+            );
+
+          if (result?.success) {
+            const id = createId();
+
+            generated.push({
+              id,
+              value,
+              type: barcodeType,
+              image: result.image,
+            });
+
+            ids.push(id);
+          }
+        }
+
+        if (!generated.length) {
+          setErrorMessage(
+            "No valid barcode values found."
+          );
+
+          return;
+        }
+
+        setBarcodes((previous) => [
+          ...previous,
+          ...generated,
+        ]);
+
+        setSelectedBarcodes(
+          (previous) => [
+            ...previous,
+            ...ids,
+          ]
+        );
+
+        setCurrentBarcode(
+          generated[
+            generated.length - 1
+          ]
+        );
+
+        setErrorMessage("");
+      },
+      [
+        inputText,
+        barcodeType,
+        generateWorkerBarcode,
+      ]
+    );
+
+  /* =======================================================
+     SELECTION
+  ======================================================= */
+
+  const toggleSelection =
+    useCallback((id) => {
+      setSelectedBarcodes(
+        (previous) => {
+          if (
+            previous.includes(id)
+          ) {
+            return previous.filter(
+              (item) => item !== id
+            );
+          }
+
+          return [
+            ...previous,
+            id,
+          ];
+        }
+      );
+    }, []);
+
+  const toggleSelectAll =
+    useCallback(() => {
+      if (
+        barcodes.length > 0 &&
+        selectedBarcodes.length ===
+          barcodes.length
+      ) {
+        setSelectedBarcodes([]);
+        return;
+      }
+
+      setSelectedBarcodes(
+        barcodes.map(
+          (barcode) => barcode.id
+        )
+      );
+    }, [
+      selectedBarcodes,
+      barcodes,
+    ]);
+
+  /* =======================================================
+     DELETE
+  ======================================================= */
+
+  const deleteSelected =
+    useCallback(() => {
+      const selected =
+        new Set(
+          selectedBarcodes
+        );
+
+      setBarcodes(
+        (previous) =>
+          previous.filter(
+            (barcode) =>
+              !selected.has(
+                barcode.id
+              )
+          )
+      );
+
+      setSelectedBarcodes([]);
+    }, [selectedBarcodes]);
+
+  /* =======================================================
+     DOWNLOAD SINGLE SVG
+  ======================================================= */
+
+  const downloadBarcode =
+    useCallback(
+      (barcode, index = null) => {
+        if (!barcode?.image) {
+          return;
+        }
+
+        const prefix =
+          index !== null
+            ? `${String(
+                index + 1
+              ).padStart(3, "0")}-`
+            : "";
+
+        const filename =
+          `${prefix}${barcode.type}-` +
+          `${sanitizeFilename(
+            barcode.value
+          )}.svg`;
+
+        downloadDataUrl(
+          barcode.image,
+          filename
+        );
+      },
+      []
+    );
+
+  /* =======================================================
+     DOWNLOAD MULTIPLE SVG
+  ======================================================= */
+
+  const downloadMultiple =
+    useCallback(
+      async (items) => {
+        if (!items?.length) {
+          setErrorMessage(
+            "Select at least one barcode."
+          );
+
+          return;
+        }
+
+        try {
+          for (
+            let index = 0;
+            index < items.length;
+            index++
+          ) {
+            downloadBarcode(
+              items[index],
+              index
+            );
+
+            await new Promise(
+              (resolve) =>
+                setTimeout(
+                  resolve,
+                  180
+                )
+            );
+          }
+        } catch (error) {
+          console.error(
+            "SVG download error:",
+            error
+          );
+
+          setErrorMessage(
+            error?.message ||
+              "Unable to download SVG files."
+          );
+        }
+      },
+      [downloadBarcode]
+    );
+
+  /* =======================================================
+     PDF
+  ======================================================= */
+
+ const downloadPdf = useCallback(
+  async (items) => {
+    if (!items?.length) {
+      setErrorMessage("Select at least one barcode.");
+      return;
+    }
+
+    setIsPdfGenerating(true);
+    setErrorMessage("");
+
+    try {
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+
+      const margin = 10;
+      const gap = 2;
+
+      const columns = 3;
+
+      const cardWidth =
+        (pageWidth - margin * 2 - gap * (columns - 1)) /
+        columns;
+
+      const cardHeight = 62;
+      const rowGap = 2;
+
+      let pageNumber = 1;
+
+      let y = 28;
+
+      /*
+       * Header
+       * Only date/time + page number
+       */
+      const drawHeader = () => {
+        const dateTime = new Date().toLocaleString();
+
+        pdf.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        pdf.setFontSize(8);
+
+        pdf.setTextColor(
+          120,
+          119,
+          140
+        );
+
+        // Date / time - left
+        pdf.text(
+          dateTime,
+          margin,
+          15
+        );
+
+        // Page number - right
+        pdf.text(
+          `Page ${pageNumber}`,
+          pageWidth - margin,
+          15,
+          {
+            align: "right",
+          }
+        );
+
+        // Header line
+        pdf.setDrawColor(
+          230,
+          228,
+          240
+        );
+
+        pdf.line(
+          margin,
+          19,
+          pageWidth - margin,
+          19
+        );
+      };
+
+      drawHeader();
+
+      let renderedCount = 0;
+
+      for (
+        let index = 0;
+        index < items.length;
+        index++
+      ) {
+        const barcode = items[index];
+
+        if (!barcode?.image) {
+          continue;
+        }
+
+        const column =
+          renderedCount % columns;
+
+        /*
+         * Move to next row
+         */
+        if (
+          column === 0 &&
+          renderedCount > 0
+        ) {
+          y +=
+            cardHeight +
+            rowGap;
+        }
+
+        /*
+         * New page
+         */
+        if (
+          column === 0 &&
+          y + cardHeight >
+            pageHeight - margin
+        ) {
+          pdf.addPage();
+
+          pageNumber += 1;
+
+          y = 28;
+
+          drawHeader();
+        }
+
+        const x =
+          margin +
+          column *
+            (cardWidth + gap);
+
+        /*
+         * Barcode card
+         */
+        pdf.setDrawColor(
+          230,
+          228,
+          240
+        );
+
+        pdf.setFillColor(
+          255,
+          255,
+          255
+        );
+
+        pdf.roundedRect(
+          x,
+          y,
+          cardWidth,
+          cardHeight,
+          3,
+          3,
+          "FD"
+        );
+
+        /*
+         * SVG -> PNG
+         */
+        const pngImage =
+          await svgDataUrlToPng(
+            barcode.image,
+            1400
+          );
+
+        /*
+         * Barcode image
+         */
+        const imageWidth =
+          cardWidth - 10;
+
+        const imageHeight = 31;
+
+        pdf.addImage(
+          pngImage,
+          "PNG",
+          x + 5,
+          y + 4,
+          imageWidth,
+          imageHeight,
+          undefined,
+          "FAST"
+        );
+
+        renderedCount += 1;
+      }
+
+      /*
+       * Create PDF blob
+       */
+      const pdfBlob =
+        pdf.output("blob");
+
+      if (!pdfBlob) {
+        throw new Error(
+          "PDF file could not be created."
+        );
+      }
+
+      /*
+       * Download
+       */
+      downloadBlob(
+        pdfBlob,
+        `linear-barcodes-${getTimestamp()}.pdf`
+      );
     } catch (error) {
-      console.error('PDF generation error:', error);
-      alert('Failed to generate PDF. Please try again.');
+      console.error(
+        "PDF generation error:",
+        error
+      );
+
+      setErrorMessage(
+        error?.message ||
+          "Unable to generate PDF."
+      );
     } finally {
       setIsPdfGenerating(false);
     }
-  };
+  },
+  []
+);
 
-  /* =========================================================
-     DOWNLOAD AS ZIP
-  ========================================================= */
+  /* =======================================================
+     ZIP
+  ======================================================= */
 
-  const downloadAsZip = () => {
-    const selected = barcodes.filter((item) => selectedBarcodes.includes(item.id));
-    if (!selected.length) return;
+  const downloadZip =
+    useCallback(
+      async (items) => {
+        if (!items?.length) {
+          setErrorMessage(
+            "Select at least one barcode."
+          );
 
-    if (window.JSZip) {
-      createZip(selected);
-      return;
-    }
+          return;
+        }
 
-    const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
-    script.onload = () => createZip(selected);
-    script.onerror = () => alert("Unable to load ZIP library.");
-    document.body.appendChild(script);
-  };
+        setIsZipGenerating(true);
+        setErrorMessage("");
 
-  const createZip = async (items) => {
-    try {
-      const zip = new window.JSZip();
-      items.forEach((barcode, index) => {
-        const imageData = barcode.dataUrl.split(",")[1];
-        const safeValue = barcode.value.replace(/[^\w-]/g, "_");
-        const filename = `${String(index + 1).padStart(3, "0")}-${safeValue}-${barcode.type}.png`;
-        zip.file(filename, imageData, { base64: true });
-      });
+        try {
+          const zip =
+            new JSZip();
 
-      const content = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(content);
-      const link = document.createElement("a");
-      link.download = "linear-barcodes.zip";
-      link.href = url;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-      console.error("ZIP generation error:", error);
-      alert("Failed to create ZIP.");
-    }
-  };
+          items.forEach(
+            (barcode, index) => {
+              if (!barcode?.image) {
+                return;
+              }
 
-  /* =========================================================
-     DELETE
-  ========================================================= */
+              const commaIndex =
+                barcode.image.indexOf(
+                  ","
+                );
 
-  const deleteBarcode = (id) => {
-    setBarcodes((prev) => prev.filter((barcode) => barcode.id !== id));
-    setSelectedBarcodes((prev) => prev.filter((item) => item !== id));
-  };
+              if (
+                commaIndex === -1
+              ) {
+                throw new Error(
+                  "Invalid barcode SVG data."
+                );
+              }
 
-  const deleteSelected = () => {
-    setBarcodes((prev) => prev.filter((item) => !selectedBarcodes.includes(item.id)));
-    setSelectedBarcodes([]);
-  };
+              const base64 =
+                barcode.image.slice(
+                  commaIndex + 1
+                );
 
-  /* =========================================================
-     CLEAR ALL
-  ========================================================= */
+              const filename =
+                `${String(
+                  index + 1
+                ).padStart(
+                  3,
+                  "0"
+                )}-${barcode.type}-` +
+                `${sanitizeFilename(
+                  barcode.value
+                )}.svg`;
 
-  const clearAll = () => {
-    setBarcodes([]);
-    setInputText("");
-    setCurrentBarcode(null);
-    setErrorMessage("");
-    setSelectedBarcodes([]);
-    setSelectAll(false);
-  };
+              zip.file(
+                filename,
+                base64,
+                {
+                  base64: true,
+                }
+              );
+            }
+          );
 
-  /* =========================================================
-     ICON
-  ========================================================= */
+          const blob =
+            await zip.generateAsync({
+              type: "blob",
+              compression:
+                "DEFLATE",
+              compressionOptions: {
+                level: 6,
+              },
+            });
 
-  const getTypeIcon = (type) => {
-    const found = BARCODE_TYPES.find((item) => item.value === type);
-    return found?.icon || "▥";
-  };
+          downloadBlob(
+            blob,
+            `linear-barcodes-${getTimestamp()}.zip`
+          );
+        } catch (error) {
+          console.error(
+            "ZIP generation error:",
+            error
+          );
 
-  /* =========================================================
-     UI
-  ========================================================= */
+          setErrorMessage(
+            error?.message ||
+              "Unable to create ZIP."
+          );
+        } finally {
+          setIsZipGenerating(false);
+        }
+      },
+      []
+    );
+
+  /* =======================================================
+     SELECTED ITEMS
+  ======================================================= */
+
+  const selectedItems = useMemo(
+    () =>
+      barcodes.filter(
+        (barcode) =>
+          selectedBarcodes.includes(
+            barcode.id
+          )
+      ),
+    [
+      barcodes,
+      selectedBarcodes,
+    ]
+  );
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
-    <div className="barcode-page">
-      <div className="barcode-container">
+    <main className="barcode-page-gt">
 
-        {/* HEADER */}
-        <header className="barcode-header">
-          <div className="header-brand">
-            <div className="brand-icon">▥</div>
-            <div>
-              <h1>Linear Barcode Generator</h1>
-              <p>Create high-clarity 1D barcodes for products, inventory and logistics</p>
-            </div>
-          </div>
-          <div className={scriptLoaded ? "status-badge ready" : "status-badge loading"}>
-            <span className="status-dot" />
-            {scriptLoaded ? "Generator Ready" : "Loading..."}
-          </div>
-        </header>
+      {/* ===================================================
+          HERO
+      =================================================== */}
 
-        {/* MAIN CARD */}
-        <div className="generator-card">
+      <section className="barcode-hero-gt">
+        <div className="barcode-hero-content-gt">
 
-          {/* CONTROLS */}
-          <section className="controls-section">
-            <div className="section-title">
-              <div>
-                <h2>Barcode Settings</h2>
-                <p>Select a linear barcode format and enter your product or inventory data.</p>
-              </div>
-            </div>
+          <h1 className="barcode-title-gt">
+            Generate barcodes{" "}
+            <span className="barcode-title-accent-gt">
+              instantly.
+            </span>
+          </h1>
 
-            <div className="controls-grid">
-              {/* BARCODE TYPE */}
-              <div className="control-field">
-                <label>Barcode Type</label>
-                <div className="select-wrapper">
-                  <select
-                    value={barcodeType}
-                    onChange={(e) => {
-                      setBarcodeType(e.target.value);
-                      setCurrentBarcode(null);
-                      setErrorMessage("");
-                    }}
-                    disabled={isLoading}
+          <p className="barcode-description-gt">
+            Create clean, high-quality
+            linear barcodes with real-time
+            preview and simple exports.
+          </p>
+
+        </div>
+      </section>
+
+      {/* ===================================================
+          GENERATOR
+      =================================================== */}
+
+      <section className="barcode-generator-card-gt">
+
+        {/* TYPE */}
+
+        <div className="barcode-controls-gt">
+
+          <div className="barcode-field-gt">
+
+            <label
+              className="barcode-label-gt"
+              htmlFor="barcode-type-gt"
+            >
+              Barcode Type
+            </label>
+
+            <select
+              id="barcode-type-gt"
+              className="barcode-select-gt"
+              value={barcodeType}
+              onChange={
+                handleTypeChange
+              }
+            >
+              {BARCODE_TYPES.map(
+                (type) => (
+                  <option
+                    key={type.value}
+                    value={type.value}
                   >
-                    <optgroup label="Code 128">
-                      {BARCODE_TYPES.filter((item) => item.value.startsWith("CODE128")).map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label} — {item.description}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="GS1">
-                      {BARCODE_TYPES.filter((item) => item.category === "GS1").map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label} — {item.description}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Retail">
-                      {BARCODE_TYPES.filter((item) => item.category === "Retail").map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label} — {item.description}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Logistics">
-                      {BARCODE_TYPES.filter((item) => item.category === "Logistics").map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label} — {item.description}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Other Linear">
-                      {BARCODE_TYPES.filter(
-                        (item) => ["General", "Pharma"].includes(item.category) && !item.value.startsWith("CODE128")
-                      ).map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label} — {item.description}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
-                  <span className="select-arrow">▼</span>
-                </div>
-                <div className="field-hint">
-                  <span className="hint-category">{selectedType.category}</span>
-                  <span>{selectedType.description}</span>
-                </div>
-              </div>
-
-              {/* SCALE */}
-              <div className="control-field">
-                <label>Barcode Quality</label>
-                <div className="scale-options">
-                  {[3, 4, 5, 6].map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className={scale === value ? "scale-option active" : "scale-option"}
-                      onClick={() => setScale(value)}
-                    >
-                      <strong>
-                        {value === 3 ? "Standard" : value === 4 ? "High" : value === 5 ? "Very High" : "Maximum"}
-                      </strong>
-                      <span>{value}×</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* INPUT */}
-            <div className="input-section">
-              <label>Barcode Data</label>
-              <div className="input-wrapper">
-                <input
-                  type="text"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  placeholder={
-                    barcodeType === "CODE128"
-                      ? "Example: PROD-ABC-2026-001"
-                      : barcodeType === "EAN13"
-                      ? "Enter 12 or 13 digit EAN-13"
-                      : barcodeType === "EAN8"
-                      ? "Enter 7 or 8 digit EAN-8"
-                      : barcodeType === "ITF14"
-                      ? "Enter 13 or 14 digit ITF-14"
-                      : barcodeType === "CODE128C"
-                      ? "Enter even number of digits"
-                      : "Enter barcode data"
-                  }
-                  disabled={isLoading}
-                  autoComplete="off"
-                  spellCheck="false"
-                />
-                {inputText && (
-                  <button
-                    type="button"
-                    className="input-clear"
-                    onClick={() => {
-                      setInputText("");
-                      setCurrentBarcode(null);
-                      setErrorMessage("");
-                    }}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-              <div className="input-help">
-                {barcodeType === "CODE128A" && <span>Code 128 A is intended for uppercase/control characters.</span>}
-                {barcodeType === "CODE128B" && <span>Code 128 B supports the standard ASCII character set.</span>}
-                {barcodeType === "CODE128C" && <span>Code 128 C efficiently encodes numeric digit pairs.</span>}
-                {barcodeType === "GS1128" && <span>GS1-128 requires GS1-formatted application identifiers.</span>}
-                {barcodeType === "EAN13" && <span>EAN-13 is a retail product barcode format.</span>}
-                {barcodeType === "EAN8" && <span>EAN-8 is designed for smaller retail packages.</span>}
-                {barcodeType === "ITF14" && <span>ITF-14 is commonly used for outer cases and cartons.</span>}
-                {barcodeType === "CODE39" && <span>Code 39 is commonly used for industrial identification.</span>}
-                {barcodeType === "PHARMACODE" && <span>Pharmacode is intended for pharmaceutical packaging.</span>}
-              </div>
-            </div>
-
-            {/* ERROR */}
-            {errorMessage && (
-              <div className="validation-error">
-                <span>!</span>
-                {errorMessage}
-              </div>
-            )}
-          </section>
-
-          {/* PREVIEW */}
-          <section className="preview-section">
-            <div className="preview-header">
-              <div>
-                <h2>Live Preview</h2>
-              </div>
-              {currentBarcode && <div className="preview-status">● Ready</div>}
-            </div>
-
-            <div className="preview-box">
-              {isGenerating && (
-                <div className="preview-state">
-                  <div className="spinner" />
-                  <strong>Generating...</strong>
-                  <span>Creating high-resolution linear barcode</span>
-                </div>
+                    {type.label}
+                  </option>
+                )
               )}
+            </select>
 
-              {!isGenerating && !currentBarcode && !inputText.trim() && (
-                <div className="preview-state">
-                  <div className="empty-barcode">▥</div>
-                  <strong>Enter barcode data</strong>
-                  <span>Code 128 is selected</span>
-                </div>
-              )}
+          </div>
 
-              {!isGenerating && !currentBarcode && inputText.trim() && errorMessage && (
-                <div className="preview-state error">
-                  <div className="error-icon">!</div>
-                  <strong>Invalid barcode</strong>
-                  <span>{errorMessage}</span>
-                </div>
-              )}
-
-              {currentBarcode && !isGenerating && (
-                <div className="barcode-preview-content">
-                  <div className="barcode-image-wrap">
-                    <img src={currentBarcode.dataUrl} alt={currentBarcode.value} />
-                  </div>
-                  <div className="preview-info">
-                    <div className="preview-main-info">
-                      <span className="preview-code">{currentBarcode.value}</span>
-                      <span className="preview-format">
-                        {getTypeIcon(currentBarcode.type)} {selectedType.label}
-                      </span>
-                    </div>
-                    <div className="preview-meta">
-                      <span>
-                        <strong>Type</strong>
-                        {selectedType.label}
-                      </span>
-                      <span>
-                        <strong>Category</strong>
-                        {selectedType.category}
-                      </span>
-                      <span>
-                        <strong>Scale</strong>
-                        {scale}×
-                      </span>
-                    </div>
-                    <button type="button" className="preview-add-btn" onClick={handleAddBarcode}>
-                      ＋ Add
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="action-row">
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleAddBarcode}
-                disabled={!currentBarcode || isLoading}
-              >
-                <span>＋</span>
-                Add Barcode
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleBatchGenerate}
-                disabled={!inputText.trim() || isLoading}
-              >
-                <span>▥</span>
-                Generate Batch
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={clearAll}
-                disabled={isLoading || (!barcodes.length && !inputText)}
-              >
-                <span>×</span>
-                Clear
-              </button>
-            </div>
-          </section>
         </div>
 
-        {/* COLLECTION */}
-        {barcodes.length > 0 && (
-          <section className="collection-card">
-            <div className="collection-header">
-              <div>
-                <h2>Barcode Collection</h2>
-                <p>{barcodes.length} generated • {selectedBarcodes.length} selected</p>
-              </div>
-              <div className="collection-actions">
+        {/* INPUT */}
+
+        <div className="barcode-input-area-gt">
+
+          <div className="barcode-field-gt">
+
+            <label
+              className="barcode-label-gt"
+              htmlFor="barcode-data-gt"
+            >
+              Barcode Data
+            </label>
+
+            <div className="barcode-input-wrap-gt">
+
+              <input
+                id="barcode-data-gt"
+                className="barcode-input-gt"
+                type="text"
+                value={inputText}
+                onChange={
+                  handleInputChange
+                }
+                placeholder="Start typing your barcode data..."
+                autoComplete="off"
+                spellCheck="false"
+              />
+
+              {inputText && (
                 <button
                   type="button"
-                  className="collection-btn"
-                  onClick={() => {
-                    if (selectedBarcodes.length === 0) {
-                      alert('Please select at least one barcode to download.');
-                      return;
-                    }
-                    downloadSelected();
-                  }}
-                  disabled={selectedBarcodes.length === 0}
+                  className="barcode-clear-input-gt"
+                  onClick={
+                    handleClear
+                  }
+                  aria-label="Clear input"
                 >
-                  ↓ Download Selected
+                  ×
                 </button>
-                <button
-                  type="button"
-                  className="collection-btn"
-                  onClick={downloadAll}
-                >
-                  ↓ Download All
-                </button>
-                <button
-                  type="button"
-                  className="collection-btn pdf"
-                  onClick={downloadAsPdf}
-                  disabled={selectedBarcodes.length === 0 || isPdfGenerating}
-                >
-                  {isPdfGenerating ? '⏳' : '📄'} PDF
-                </button>
-                <button
-                  type="button"
-                  className="collection-btn zip"
-                  onClick={downloadAsZip}
-                  disabled={selectedBarcodes.length === 0}
-                >
-                  ▣ ZIP
-                </button>
-                <button
-                  type="button"
-                  className="collection-btn delete-selected"
-                  onClick={deleteSelected}
-                  disabled={selectedBarcodes.length === 0}
-                >
-                  × Delete Selected
-                </button>
-              </div>
+              )}
+
             </div>
 
-            <div className="barcode-grid-header">
-              <label className="select-all-label">
-                <input
-                  type="checkbox"
-                  checked={selectAll}
-                  onChange={toggleSelectAll}
-                />
-                Select All
-              </label>
-              <span className="grid-count">{barcodes.length} items</span>
+            {/* LIVE STATUS */}
+
+            <div className="barcode-input-info-gt">
+
+              <span
+                className={
+                  isPreviewGenerating
+                    ? "barcode-live-loading-dot-gt"
+                    : ""
+                }
+              />
+
+              {isPreviewGenerating
+                ? "Generating live preview..."
+                : "Live preview"}
+
             </div>
 
-            <div className="barcode-grid">
-              {barcodes.map((barcode, index) => (
-                <div className="barcode-item" key={barcode.id}>
-                  <div className="barcode-item-top">
-                    <div className="item-select">
-                      <input
-                        type="checkbox"
-                        checked={selectedBarcodes.includes(barcode.id)}
-                        onChange={() => toggleSelect(barcode.id)}
-                      />
-                    </div>
-                    <span className="item-number">
-                      #{String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="item-format">
-                      {getTypeIcon(barcode.type)} {barcode.type}
-                    </span>
-                  </div>
+          </div>
 
-                  <div className="barcode-item-image">
-                    <img src={barcode.dataUrl} alt={barcode.value} loading="lazy" />
-                  </div>
+        </div>
 
-                  <div className="barcode-item-bottom">
-                    <div className="item-value">{barcode.value}</div>
-                    <div className="item-actions">
-                      <button type="button" title="Download" onClick={() => downloadBarcode(barcode)}>
-                        ↓
-                      </button>
-                      <button type="button" className="delete" title="Delete" onClick={() => deleteBarcode(barcode.id)}>
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+        {/* BATCH */}
+
+        <div className="barcode-batch-actions-gt">
+
+          <button
+            type="button"
+            onClick={
+              handleBatchGenerate
+            }
+            disabled={
+              !inputText.trim()
+            }
+          >
+            Generate Batch
+          </button>
+
+        </div>
+
+        {/* ERROR */}
+
+        {errorMessage && (
+          <div className="barcode-error-gt">
+
+            <span className="barcode-error-icon-gt">
+              !
+            </span>
+
+            <span>
+              {errorMessage}
+            </span>
+
+          </div>
         )}
 
-        {/* FOOTER */}
-        <div className="barcode-footer">
-          <div>
-            <strong>Linear 1D formats</strong>
-          </div>
+      </section>
+
+      {/* ===================================================
+          LIVE PREVIEW
+      =================================================== */}
+
+      <section className="barcode-preview-card-gt">
+
+        <div className="barcode-section-header-gt">
+
+          {currentBarcode && (
+            <span className="barcode-type-pill-gt">
+              {currentBarcode.type.toUpperCase()}
+            </span>
+          )}
+
         </div>
 
-      </div>
-    </div>
+        <div className="barcode-preview-stage-gt">
+
+          {!currentBarcode ? (
+            <div className="barcode-empty-gt">
+
+              <div className="barcode-empty-icon-gt">
+                ▥
+              </div>
+
+              <h3 className="barcode-empty-title-gt">
+                Start typing
+              </h3>
+
+              <p className="barcode-empty-text-gt">
+                Your barcode will appear
+                here instantly.
+              </p>
+
+            </div>
+          ) : (
+            <div className="barcode-result-gt">
+
+              <div className="barcode-image-box-gt">
+
+                <img
+                  className="barcode-main-image-gt"
+                  src={
+                    currentBarcode.image
+                  }
+                  alt={
+                    currentBarcode.value
+                  }
+                  draggable="false"
+                />
+
+                <div className="barcode-value-gt">
+                  {currentBarcode.value}
+                </div>
+
+                <div className="barcode-result-meta-gt">
+
+                  <span>
+                    {currentBarcode.type.toUpperCase()}
+                  </span>
+
+                  <span className="barcode-meta-separator-gt">
+                    •
+                  </span>
+
+                  <span>
+                    Live SVG
+                  </span>
+
+                </div>
+
+              </div>
+
+              <div className="barcode-result-actions-gt">
+
+                <button
+                  type="button"
+                  className="barcode-button-primary-gt"
+                  onClick={
+                    handleAddBarcode
+                  }
+                >
+                  ＋ Add Barcode
+                </button>
+
+                <button
+                  type="button"
+                  className="barcode-button-secondary-gt"
+                  onClick={() =>
+                    downloadBarcode(
+                      currentBarcode
+                    )
+                  }
+                >
+                  ↓ Download SVG
+                </button>
+
+              </div>
+
+            </div>
+          )}
+
+        </div>
+
+      </section>
+
+      {/* ===================================================
+          COLLECTION
+      =================================================== */}
+
+      <section className="barcode-collection-card-gt">
+
+        <div className="barcode-section-header-gt barcode-section-header-collection-gt">
+
+          <div>
+
+            <span className="barcode-kicker-gt">
+              COLLECTION
+            </span>
+
+            <h2 className="barcode-heading-gt">
+
+              Your Barcodes
+
+              {barcodes.length > 0 && (
+                <span className="barcode-count-gt">
+                  {barcodes.length}
+                </span>
+              )}
+
+            </h2>
+
+          </div>
+
+          {barcodes.length > 0 && (
+            <button
+              type="button"
+              className="barcode-select-all-gt"
+              onClick={
+                toggleSelectAll
+              }
+            >
+              {selectedBarcodes.length ===
+              barcodes.length
+                ? "Deselect all"
+                : "Select all"}
+            </button>
+          )}
+
+        </div>
+
+        {barcodes.length === 0 ? (
+          <div className="barcode-empty-collection-gt">
+
+            <div className="barcode-empty-collection-icon-gt">
+              ＋
+            </div>
+
+            <h3>
+              No barcodes yet
+            </h3>
+
+            <p>
+              Add your generated
+              barcodes to build your
+              collection.
+            </p>
+
+          </div>
+        ) : (
+          <>
+            <div className="barcode-toolbar-gt">
+
+              <div className="barcode-selected-count-gt">
+
+                <strong>
+                  {selectedBarcodes.length}
+                </strong>
+
+                <span>
+                  selected
+                </span>
+
+              </div>
+
+              <div className="barcode-toolbar-actions-gt">
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadMultiple(
+                      selectedItems
+                    )
+                  }
+                  disabled={
+                    !selectedItems.length
+                  }
+                >
+                  SVG
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadPdf(
+                      selectedItems
+                    )
+                  }
+                  disabled={
+                    !selectedItems.length ||
+                    isPdfGenerating
+                  }
+                >
+                  {isPdfGenerating
+                    ? "PDF..."
+                    : "PDF"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadZip(
+                      selectedItems
+                    )
+                  }
+                  disabled={
+                    !selectedItems.length ||
+                    isZipGenerating
+                  }
+                >
+                  {isZipGenerating
+                    ? "ZIP..."
+                    : "ZIP"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadMultiple(
+                      barcodes
+                    )
+                  }
+                  disabled={
+                    !barcodes.length
+                  }
+                >
+                  All
+                </button>
+
+                <button
+                  type="button"
+                  className="barcode-delete-gt"
+                  onClick={
+                    deleteSelected
+                  }
+                  disabled={
+                    !selectedItems.length
+                  }
+                >
+                  Delete
+                </button>
+
+              </div>
+
+            </div>
+
+            <div className="barcode-grid-gt">
+
+              {barcodes.map(
+                (barcode, index) => {
+                  const selected =
+                    selectedBarcodes.includes(
+                      barcode.id
+                    );
+
+                  return (
+                    <article
+                      key={
+                        barcode.id
+                      }
+                      className={
+                        `barcode-item-gt ${
+                          selected
+                            ? "barcode-item-selected-gt"
+                            : ""
+                        }`
+                      }
+                    >
+
+                      <div className="barcode-item-header-gt">
+
+                        <label className="barcode-checkbox-gt">
+
+                          <input
+                            type="checkbox"
+                            checked={
+                              selected
+                            }
+                            onChange={() =>
+                              toggleSelection(
+                                barcode.id
+                              )
+                            }
+                          />
+
+                          <span />
+
+                        </label>
+
+                        <span className="barcode-number-gt">
+                          #
+                          {String(
+                            index + 1
+                          ).padStart(
+                            3,
+                            "0"
+                          )}
+                        </span>
+
+                      </div>
+
+                      <div className="barcode-item-image-gt">
+
+                        <img
+                          src={
+                            barcode.image
+                          }
+                          alt={
+                            barcode.value
+                          }
+                          draggable="false"
+                        />
+
+                      </div>
+
+                      <div className="barcode-item-value-gt">
+                        {barcode.value}
+                      </div>
+
+                      <div className="barcode-item-type-gt">
+                        {barcode.type.toUpperCase()}
+                      </div>
+
+                      <div className="barcode-item-actions-gt">
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCurrentBarcode(
+                              barcode
+                            )
+                          }
+                        >
+                          Preview
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadBarcode(
+                              barcode,
+                              index
+                            )
+                          }
+                        >
+                          Download
+                        </button>
+
+                      </div>
+
+                    </article>
+                  );
+                }
+              )}
+
+            </div>
+          </>
+        )}
+
+      </section>
+
+    </main>
   );
 }
